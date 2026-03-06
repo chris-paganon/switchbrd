@@ -36,7 +36,8 @@ func TestHandlerSwitchesTargets(t *testing.T) {
 	}
 
 	handler := &Handler{
-		registry: reg,
+		registry:   reg,
+		targetHost: "localhost",
 		transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			return responseForHost(req.URL.Host), nil
 		}),
@@ -61,7 +62,8 @@ func TestHandlerReturns502WhenBackendIsDown(t *testing.T) {
 	}
 
 	handler := &Handler{
-		registry: reg,
+		registry:   reg,
+		targetHost: "localhost",
 		transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 			return nil, errors.New("dial failed")
 		}),
@@ -86,9 +88,9 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func responseForHost(host string) *http.Response {
 	body := "unknown"
 	switch host {
-	case "127.0.0.1:5174":
+	case "localhost:5174", "127.0.0.1:5174":
 		body = "alpha"
-	case "127.0.0.1:5175":
+	case "localhost:5175", "127.0.0.1:5175":
 		body = "beta"
 	}
 

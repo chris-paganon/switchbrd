@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -44,7 +43,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reverseProxy := httputil.NewSingleHostReverseProxy(target)
 	reverseProxy.Transport = h.transport
 	reverseProxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, proxyErr error) {
-		log.Printf("proxy backend unavailable for %s on port %d: %v", candidate.Name, candidate.Port, proxyErr)
 		http.Error(rw, fmt.Sprintf("active app on port %d is unavailable", candidate.Port), http.StatusBadGateway)
 	}
 	reverseProxy.ServeHTTP(w, r)

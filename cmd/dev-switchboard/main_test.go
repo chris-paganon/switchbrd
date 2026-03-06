@@ -22,6 +22,16 @@ func TestParseServerCommandAcceptsPortFlag(t *testing.T) {
 	}
 }
 
+func TestParseServerCommandAcceptsShortPortFlag(t *testing.T) {
+	port, err := parseServerCommand([]string{"-p", "6000"})
+	if err != nil {
+		t.Fatalf("parse server command: %v", err)
+	}
+	if port != 6000 {
+		t.Fatalf("unexpected port: %d", port)
+	}
+}
+
 func TestParseActivateCommandForPort(t *testing.T) {
 	target, name, err := parseActivateCommand([]string{"5175", "--name", "my-app"})
 	if err != nil {

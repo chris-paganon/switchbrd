@@ -53,7 +53,11 @@ func run(ctx context.Context, args []string) error {
 	case "status":
 		return statusCommand(ctx, client)
 	case "tui":
-		ownedServer, err := ensureServerRunning(ctx, client)
+		port, err := parseServerCommand(args[1:])
+		if err != nil {
+			return err
+		}
+		ownedServer, err := ensureServerRunning(ctx, client, port)
 		if err != nil {
 			return err
 		}
@@ -188,8 +192,8 @@ func statusCommand(ctx context.Context, client *control.Client) error {
 	return nil
 }
 
-func ensureServerRunning(ctx context.Context, client *control.Client) (bool, error) {
-	return startDaemonIfNeeded(ctx, client, defaultProxyPort)
+func ensureServerRunning(ctx context.Context, client *control.Client, port int) (bool, error) {
+	return startDaemonIfNeeded(ctx, client, port)
 }
 
 func startDaemonIfNeeded(ctx context.Context, client *control.Client, port int) (bool, error) {
@@ -263,9 +267,9 @@ func parseServerCommand(args []string) (int, error) {
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
-		case "--port":
+		case "--port", "-p":
 			if i+1 >= len(args) {
-				return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start> [--port <port>]")
+				return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start|tui> [--port <port>]")
 			}
 			parsedPort, err := strconv.Atoi(args[i+1])
 			if err != nil || parsedPort < 1 || parsedPort > 65535 {
@@ -274,7 +278,7 @@ func parseServerCommand(args []string) (int, error) {
 			port = parsedPort
 			i++
 		default:
-			return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start> [--port <port>]")
+			return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start|tui> [--port <port>]")
 		}
 	}
 

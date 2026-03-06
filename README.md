@@ -9,10 +9,13 @@ When `serve` is running, switchboard claims loopback port `5173` by default so V
 ```sh
 go run ./cmd/dev-switchboard serve
 go run ./cmd/dev-switchboard serve --port 6000
+go run ./cmd/dev-switchboard serve -p 6000
 go run ./cmd/dev-switchboard start
 go run ./cmd/dev-switchboard start --port 6000
+go run ./cmd/dev-switchboard start -p 6000
 go run ./cmd/dev-switchboard status
 go run ./cmd/dev-switchboard tui
+go run ./cmd/dev-switchboard tui -p 6000
 go run ./cmd/dev-switchboard stop
 go run ./cmd/dev-switchboard add 5174
 go run ./cmd/dev-switchboard add 5175 --name my-app

@@ -69,7 +69,7 @@ var (
 	panelStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("62")).
-			Padding(1, 2)
+			Padding(0, 1)
 	sectionTitleStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("222"))
@@ -232,7 +232,7 @@ func (m model) renderAppsPanel() string {
 		width = 54
 	}
 
-	return panelStyle.Width(width).Render(strings.Join(lines, "\n"))
+	return panelStyle.Width(width).Height(12).Render(strings.Join(lines, "\n"))
 }
 
 func (m model) renderActionsPanel() string {
@@ -287,7 +287,7 @@ func (m model) renderActionsPanel() string {
 		lines = append(lines, "", errorStyle.Render(m.errLine))
 	}
 
-	return panelStyle.Width(36).Render(strings.Join(lines, "\n"))
+	return panelStyle.Width(36).Height(12).Render(strings.Join(lines, "\n"))
 }
 
 func (m model) updateListMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

@@ -71,11 +71,11 @@ func run(ctx context.Context, args []string) error {
 		}
 		return nil
 	case "activate":
-		port, name, err := parsePortNameCommand("activate", args[1:])
+		target, name, err := parseActivateCommand(args[1:])
 		if err != nil {
 			return err
 		}
-		candidate, err := client.Activate(ctx, port, name)
+		candidate, err := client.Activate(ctx, target, name)
 		if err != nil {
 			return err
 		}
@@ -244,6 +244,41 @@ func parsePortNameCommand(command string, args []string) (int, string, error) {
 	}
 
 	return port, strings.TrimSpace(name), nil
+}
+
+func parseActivateCommand(args []string) (string, string, error) {
+	var (
+		name   string
+		target string
+	)
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name", "-n":
+			if i+1 >= len(args) {
+				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+			}
+			name = args[i+1]
+			i++
+		default:
+			if strings.HasPrefix(args[i], "-") {
+				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+			}
+			if target != "" {
+				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+			}
+			target = args[i]
+		}
+	}
+
+	if target == "" {
+		return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+	}
+	if _, err := strconv.Atoi(target); err != nil && name != "" {
+		return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+	}
+
+	return strings.TrimSpace(target), strings.TrimSpace(name), nil
 }
 
 func parseRenameCommand(args []string) (string, string, error) {

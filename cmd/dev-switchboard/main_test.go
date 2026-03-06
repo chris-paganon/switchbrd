@@ -17,13 +17,23 @@ func TestIsOptionalIPv6Loopback(t *testing.T) {
 	}
 }
 
-func TestParsePortNameCommand(t *testing.T) {
-	port, name, err := parsePortNameCommand("activate", []string{"5175", "--name", "my-app"})
+func TestParseActivateCommandForPort(t *testing.T) {
+	target, name, err := parseActivateCommand([]string{"5175", "--name", "my-app"})
 	if err != nil {
 		t.Fatalf("parse command: %v", err)
 	}
-	if port != 5175 || name != "my-app" {
-		t.Fatalf("unexpected parse result: port=%d name=%q", port, name)
+	if target != "5175" || name != "my-app" {
+		t.Fatalf("unexpected parse result: target=%q name=%q", target, name)
+	}
+}
+
+func TestParseActivateCommandForName(t *testing.T) {
+	target, name, err := parseActivateCommand([]string{"my-app"})
+	if err != nil {
+		t.Fatalf("parse command: %v", err)
+	}
+	if target != "my-app" || name != "" {
+		t.Fatalf("unexpected parse result: target=%q name=%q", target, name)
 	}
 }
 

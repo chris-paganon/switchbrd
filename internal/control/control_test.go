@@ -42,7 +42,7 @@ func TestServerHandlersLifecycle(t *testing.T) {
 		t.Fatalf("expected no active app, got %+v", inactive.App)
 	}
 
-	postJSON(t, server, http.MethodPut, "/active", activateRequest{Port: 5174, Name: "alpha"}, http.StatusOK)
+	postJSON(t, server, http.MethodPut, "/active", activateRequest{Target: "5174", Name: "alpha"}, http.StatusOK)
 
 	activeRecorder = request(t, server, http.MethodGet, "/active", nil)
 	var active activeResponse
@@ -75,6 +75,22 @@ func TestServerRenameByOldName(t *testing.T) {
 	}
 	if listed.Apps[0].Name != "my-app" {
 		t.Fatalf("unexpected renamed app: %+v", listed.Apps[0])
+	}
+}
+
+func TestServerActivatesExistingName(t *testing.T) {
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+
+	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175, Name: "my-app"}, http.StatusCreated)
+	postJSON(t, server, http.MethodPut, "/active", activateRequest{Target: "my-app"}, http.StatusOK)
+
+	activeRecorder := request(t, server, http.MethodGet, "/active", nil)
+	var active activeResponse
+	if err := json.Unmarshal(activeRecorder.Body.Bytes(), &active); err != nil {
+		t.Fatalf("unmarshal active: %v", err)
+	}
+	if active.App == nil || active.App.Name != "my-app" || active.App.Port != 5175 {
+		t.Fatalf("unexpected active app: %+v", active.App)
 	}
 }
 

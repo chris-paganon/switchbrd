@@ -77,8 +77,8 @@ func (c *Client) List(ctx context.Context) ([]app.App, string, error) {
 	return payload.Apps, payload.ActiveName, nil
 }
 
-func (c *Client) Activate(ctx context.Context, port int, name string) (*app.App, error) {
-	resp, err := c.do(ctx, http.MethodPut, "/active", activateRequest{Port: port, Name: name})
+func (c *Client) Activate(ctx context.Context, target string, name string) (*app.App, error) {
+	resp, err := c.do(ctx, http.MethodPut, "/active", activateRequest{Target: target, Name: name})
 	if err != nil {
 		return nil, err
 	}

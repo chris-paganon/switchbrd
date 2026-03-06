@@ -8,8 +8,8 @@ type addRequest struct {
 }
 
 type activateRequest struct {
-	Port int    `json:"port"`
-	Name string `json:"name,omitempty"`
+	Target string `json:"target"`
+	Name   string `json:"name,omitempty"`
 }
 
 type renameRequest struct {

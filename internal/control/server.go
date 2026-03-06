@@ -104,27 +104,48 @@ func (s *Server) handleActive(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		candidate, ok := s.registry.FindByPort(req.Port)
-		if ok {
-			if req.Name != "" && req.Name != candidate.Name {
-				var err error
-				candidate, err = s.registry.Rename(candidate.Name, req.Name)
-				if err != nil {
+		if req.Target == "" {
+			respondError(w, http.StatusBadRequest, "activation target is required")
+			return
+		}
+
+		port, err := strconv.Atoi(req.Target)
+		if err == nil {
+			candidate, ok := s.registry.FindByPort(port)
+			if ok {
+				if req.Name != "" && req.Name != candidate.Name {
+					candidate, err = s.registry.Rename(candidate.Name, req.Name)
+					if err != nil {
+						respondError(w, http.StatusBadRequest, err.Error())
+						return
+					}
+				}
+			} else {
+				candidate = app.App{Name: req.Name, Port: port}
+				if candidate.Name == "" {
+					candidate.Name = strconv.Itoa(candidate.Port)
+				}
+				if err := s.registry.Add(candidate); err != nil {
 					respondError(w, http.StatusBadRequest, err.Error())
 					return
 				}
 			}
-		} else {
-			candidate = app.App{Name: req.Name, Port: req.Port}
-			if candidate.Name == "" {
-				candidate.Name = strconv.Itoa(candidate.Port)
-			}
-			if err := s.registry.Add(candidate); err != nil {
+
+			candidate, err = s.registry.Activate(candidate.Name)
+			if err != nil {
 				respondError(w, http.StatusBadRequest, err.Error())
 				return
 			}
+			respondJSON(w, http.StatusOK, activeResponse{App: &candidate})
+			return
 		}
-		candidate, err := s.registry.Activate(candidate.Name)
+
+		if req.Name != "" {
+			respondError(w, http.StatusBadRequest, "--name can only be used when activating a port")
+			return
+		}
+
+		candidate, err := s.registry.Activate(req.Target)
 		if err != nil {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return

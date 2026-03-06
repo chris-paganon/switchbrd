@@ -60,7 +60,6 @@ type model struct {
 
 var (
 	appShellStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("235")).
 			Foreground(lipgloss.Color("252"))
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -183,12 +182,11 @@ func (m model) View() string {
 
 	top := headerStyle.Render(" dev-switchboard ") + "\n" + m.renderStatusPanel()
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.renderAppsPanel(), m.renderActionsPanel())
-	footer := m.renderFooterPanel()
 
 	return appShellStyle.
 		Width(maxInt(m.width, 80)).
-		Padding(1, 2).
-		Render(lipgloss.JoinVertical(lipgloss.Left, top, body, footer))
+		Padding(0, 1).
+		Render(lipgloss.JoinVertical(lipgloss.Left, top, body))
 }
 
 func (m model) renderStatusPanel() string {
@@ -197,24 +195,17 @@ func (m model) renderStatusPanel() string {
 		activeLine = formatApp(*m.status.Active)
 	}
 
-	lines := []string{
+	segments := []string{
 		sectionTitleStyle.Render("Status"),
 		fmt.Sprintf("%s %d", metaLabelStyle.Render("PID"), m.status.PID),
 		fmt.Sprintf("%s %d", metaLabelStyle.Render("Apps"), m.status.AppCount),
 		fmt.Sprintf("%s %s", metaLabelStyle.Render("Active"), activeLine),
 	}
 	if len(m.status.ProxyListenAddrs) > 0 {
-		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Listen"), strings.Join(m.status.ProxyListenAddrs, ", ")))
-	}
-	if m.ownedServer && !m.detached {
-		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "owns server"))
-	} else if m.detached {
-		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "detached"))
-	} else {
-		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "attached"))
+		segments = append(segments, fmt.Sprintf("%s %s", metaLabelStyle.Render("Listen"), strings.Join(m.status.ProxyListenAddrs, ", ")))
 	}
 
-	return panelStyle.Width(maxInt(m.width-8, 72)).Render(strings.Join(lines, "\n"))
+	return panelStyle.Width(maxInt(m.width-6, 78)).Render(strings.Join(segments, "   "))
 }
 
 func (m model) renderAppsPanel() string {
@@ -241,7 +232,7 @@ func (m model) renderAppsPanel() string {
 		width = 54
 	}
 
-	return panelStyle.Width(width).Height(14).Render(strings.Join(lines, "\n"))
+	return panelStyle.Width(width).Render(strings.Join(lines, "\n"))
 }
 
 func (m model) renderActionsPanel() string {
@@ -289,22 +280,14 @@ func (m model) renderActionsPanel() string {
 			"j/k    move",
 		)
 	}
-
-	return panelStyle.Width(36).Height(14).Render(strings.Join(lines, "\n"))
-}
-
-func (m model) renderFooterPanel() string {
-	lines := []string{sectionTitleStyle.Render("Messages")}
 	if m.statusLine != "" {
-		lines = append(lines, statusStyle.Render(m.statusLine))
-	} else {
-		lines = append(lines, helpStyle.Render("Ready"))
+		lines = append(lines, "", statusStyle.Render(m.statusLine))
 	}
 	if m.errLine != "" {
-		lines = append(lines, errorStyle.Render(m.errLine))
+		lines = append(lines, "", errorStyle.Render(m.errLine))
 	}
 
-	return panelStyle.Width(maxInt(m.width-8, 72)).Render(strings.Join(lines, "\n"))
+	return panelStyle.Width(36).Render(strings.Join(lines, "\n"))
 }
 
 func (m model) updateListMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

@@ -161,7 +161,7 @@ Commands:
   remove <name>       Remove a registered app.
 
 Options:
-  -p, --port <port>   Override the proxy port for serve/start/tui/daemon.
+  -p, --port <port>   Override the proxy port for serve/start/tui/daemon (default: 5173).
   -n, --name <name>   Set or override an app name for add/activate.
   -h, --help          Show this help message.
 

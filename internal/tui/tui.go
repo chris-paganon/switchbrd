@@ -54,13 +54,42 @@ type model struct {
 	statusLine string
 	errLine    string
 	ready      bool
+	width      int
+	height     int
 }
 
 var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	activeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
-	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
+	appShellStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("235")).
+			Foreground(lipgloss.Color("252"))
+	headerStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("230")).
+			Background(lipgloss.Color("24")).
+			Padding(0, 1)
+	panelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("62")).
+			Padding(1, 2)
+	sectionTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("222"))
+	activeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("42")).
+			Bold(true)
+	selectedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("238")).
+			Bold(true)
+	metaLabelStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("109"))
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("250"))
+	statusStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("151"))
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("203")).
+			Bold(true)
 )
 
 func Run(client *control.Client, ownedServer bool) error {
@@ -92,6 +121,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.ready = true
+		m.width = msg.Width
+		m.height = msg.Height
 		return m, nil
 	case tickMsg:
 		return m, tea.Batch(refreshCmd(m.client), tickCmd())
@@ -147,71 +178,133 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if !m.ready {
-		return "loading..."
+		return appShellStyle.Render("loading...")
 	}
 
-	var b strings.Builder
-	b.WriteString(headerStyle.Render("dev-switchboard TUI"))
-	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("running | apps: %d | pid: %d", m.status.AppCount, m.status.PID))
-	if m.status.Active == nil {
-		b.WriteString(" | active: none")
+	top := headerStyle.Render(" dev-switchboard ") + "\n" + m.renderStatusPanel()
+	body := lipgloss.JoinHorizontal(lipgloss.Top, m.renderAppsPanel(), m.renderActionsPanel())
+	footer := m.renderFooterPanel()
+
+	return appShellStyle.
+		Width(maxInt(m.width, 80)).
+		Padding(1, 2).
+		Render(lipgloss.JoinVertical(lipgloss.Left, top, body, footer))
+}
+
+func (m model) renderStatusPanel() string {
+	activeLine := "none"
+	if m.status.Active != nil {
+		activeLine = formatApp(*m.status.Active)
+	}
+
+	lines := []string{
+		sectionTitleStyle.Render("Status"),
+		fmt.Sprintf("%s %d", metaLabelStyle.Render("PID"), m.status.PID),
+		fmt.Sprintf("%s %d", metaLabelStyle.Render("Apps"), m.status.AppCount),
+		fmt.Sprintf("%s %s", metaLabelStyle.Render("Active"), activeLine),
+	}
+	if len(m.status.ProxyListenAddrs) > 0 {
+		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Listen"), strings.Join(m.status.ProxyListenAddrs, ", ")))
+	}
+	if m.ownedServer && !m.detached {
+		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "owns server"))
+	} else if m.detached {
+		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "detached"))
 	} else {
-		b.WriteString(" | active: ")
-		b.WriteString(formatApp(*m.status.Active))
+		lines = append(lines, fmt.Sprintf("%s %s", metaLabelStyle.Render("Session"), "attached"))
 	}
-	b.WriteString("\n\n")
 
+	return panelStyle.Width(maxInt(m.width-8, 72)).Render(strings.Join(lines, "\n"))
+}
+
+func (m model) renderAppsPanel() string {
+	lines := []string{sectionTitleStyle.Render("Apps")}
 	if len(m.apps) == 0 {
-		b.WriteString("no apps registered\n")
+		lines = append(lines, helpStyle.Render("No apps registered"))
 	} else {
 		for i, candidate := range m.apps {
-			marker := " "
 			line := formatApp(candidate)
+			prefix := "  "
 			if m.status.Active != nil && m.status.Active.Name == candidate.Name {
-				marker = "*"
-				line = activeStyle.Render(line)
+				line = activeStyle.Render("ACTIVE " + line)
 			}
 			if i == m.selected {
-				b.WriteString("> ")
-			} else {
-				b.WriteString("  ")
+				prefix = "› "
+				line = selectedStyle.Render(line)
 			}
-			b.WriteString(marker + " " + line)
-			b.WriteString("\n")
+			lines = append(lines, prefix+line)
 		}
 	}
 
-	b.WriteString("\n")
+	width := 42
+	if m.width > 110 {
+		width = 54
+	}
+
+	return panelStyle.Width(width).Height(14).Render(strings.Join(lines, "\n"))
+}
+
+func (m model) renderActionsPanel() string {
+	var lines []string
+	lines = append(lines, sectionTitleStyle.Render("Actions"))
+
 	switch m.mode {
 	case modeAdd:
-		b.WriteString("add app\n")
-		b.WriteString(m.portInput.View())
-		b.WriteString("\n")
-		b.WriteString(m.nameInput.View())
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("enter save | tab switch field | esc cancel"))
+		lines = append(lines,
+			"Register a port",
+			"",
+			m.portInput.View(),
+			m.nameInput.View(),
+			"",
+			helpStyle.Render("enter save"),
+			helpStyle.Render("tab switch field"),
+			helpStyle.Render("esc cancel"),
+		)
 	case modeRename:
-		b.WriteString("rename app\n")
-		b.WriteString(m.nameInput.View())
-		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("enter save | esc cancel"))
+		lines = append(lines,
+			"Rename selected app",
+			"",
+			m.nameInput.View(),
+			"",
+			helpStyle.Render("enter save"),
+			helpStyle.Render("esc cancel"),
+		)
 	case modeConfirmRemove:
-		b.WriteString("remove selected app? (y/n)")
+		lines = append(lines,
+			"Remove selected app?",
+			"",
+			errorStyle.Render("Press y to confirm"),
+			helpStyle.Render("Any other key cancels"),
+		)
 	default:
-		b.WriteString(helpStyle.Render("j/k or arrows move | enter activate | a add | r rename | x remove | s stop | d detach | q quit | R refresh"))
+		lines = append(lines,
+			"enter  activate selected",
+			"a      add app",
+			"r      rename selected",
+			"x      remove selected",
+			"s      stop server",
+			"d      detach session",
+			"q      quit",
+			"R      refresh",
+			"j/k    move",
+		)
 	}
 
+	return panelStyle.Width(36).Height(14).Render(strings.Join(lines, "\n"))
+}
+
+func (m model) renderFooterPanel() string {
+	lines := []string{sectionTitleStyle.Render("Messages")}
 	if m.statusLine != "" {
-		b.WriteString("\n")
-		b.WriteString(m.statusLine)
+		lines = append(lines, statusStyle.Render(m.statusLine))
+	} else {
+		lines = append(lines, helpStyle.Render("Ready"))
 	}
 	if m.errLine != "" {
-		b.WriteString("\n")
-		b.WriteString(errorStyle.Render(m.errLine))
+		lines = append(lines, errorStyle.Render(m.errLine))
 	}
 
-	return b.String()
+	return panelStyle.Width(maxInt(m.width-8, 72)).Render(strings.Join(lines, "\n"))
 }
 
 func (m model) updateListMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -447,4 +540,11 @@ func sortedApps(apps []app.App) []app.App {
 
 func formatApp(candidate app.App) string {
 	return fmt.Sprintf("%s -> %d", candidate.Name, candidate.Port)
+}
+
+func maxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

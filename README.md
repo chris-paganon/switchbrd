@@ -1,14 +1,16 @@
 # dev-switchboard
 
-Local developer switchboard for routing `http://localhost:5173` to one active app.
+Local developer switchboard for routing `http://localhost:5173` to one active app by default.
 
-When `serve` is running, switchboard claims loopback port `5173` so Vite apps started with plain `pnpm dev` should typically fall through to `5174`, `5175`, and so on.
+When `serve` is running, switchboard claims loopback port `5173` by default so Vite apps started with plain `pnpm dev` should typically fall through to `5174`, `5175`, and so on. Use `--port` to override the proxy port.
 
 ## Commands
 
 ```sh
 go run ./cmd/dev-switchboard serve
+go run ./cmd/dev-switchboard serve --port 6000
 go run ./cmd/dev-switchboard start
+go run ./cmd/dev-switchboard start --port 6000
 go run ./cmd/dev-switchboard status
 go run ./cmd/dev-switchboard tui
 go run ./cmd/dev-switchboard stop

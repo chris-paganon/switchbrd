@@ -8,7 +8,7 @@ import (
 )
 
 func TestRegistryLifecycle(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "alpha", Port: 5174}); err != nil {
 		t.Fatalf("add alpha: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestRegistryLifecycle(t *testing.T) {
 }
 
 func TestRegistryRejectsDuplicates(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "alpha", Port: 5174}); err != nil {
 		t.Fatalf("add alpha: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestRegistryRejectsDuplicates(t *testing.T) {
 }
 
 func TestRegistryValidatesPorts(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "bad", Port: 0}); !errors.Is(err, ErrInvalidPort) {
 		t.Fatalf("expected invalid port error, got %v", err)
 	}
@@ -61,7 +61,7 @@ func TestRegistryValidatesPorts(t *testing.T) {
 }
 
 func TestRegistryValidatesNames(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "", Port: 5174}); !errors.Is(err, ErrInvalidName) {
 		t.Fatalf("expected invalid name error, got %v", err)
 	}
@@ -78,7 +78,7 @@ func TestRegistryValidatesNames(t *testing.T) {
 }
 
 func TestRegistryFindByPort(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "5175", Port: 5175}); err != nil {
 		t.Fatalf("add app: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestRegistryFindByPort(t *testing.T) {
 }
 
 func TestRegistryRenamePreservesActiveSelection(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "5175", Port: 5175}); err != nil {
 		t.Fatalf("add app: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestRegistryRenamePreservesActiveSelection(t *testing.T) {
 }
 
 func TestRegistryRenamePort(t *testing.T) {
-	reg := New()
+	reg := New(5173)
 	if err := reg.Add(app.App{Name: "existing", Port: 5175}); err != nil {
 		t.Fatalf("add app: %v", err)
 	}
@@ -127,5 +127,12 @@ func TestRegistryRenamePort(t *testing.T) {
 	}
 	if renamed.Name != "renamed" {
 		t.Fatalf("unexpected renamed app: %+v", renamed)
+	}
+}
+
+func TestRegistryReservesConfiguredPort(t *testing.T) {
+	reg := New(6000)
+	if err := reg.Add(app.App{Name: "reserved", Port: 6000}); !errors.Is(err, ErrReservedPort) {
+		t.Fatalf("expected reserved port error, got %v", err)
 	}
 }

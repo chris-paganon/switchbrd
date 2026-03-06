@@ -19,10 +19,11 @@ import (
 type Config struct {
 	SocketPath       string
 	ProxyListenAddrs []string
+	ReservedPort     int
 }
 
 func Run(ctx context.Context, cfg Config) error {
-	reg := registry.New()
+	reg := registry.New(cfg.ReservedPort)
 	serviceCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -135,5 +136,6 @@ func closeListeners(listeners []net.Listener) {
 }
 
 func isOptionalIPv6Loopback(addr string, err error) bool {
-	return addr == "[::1]:5173" && strings.Contains(err.Error(), "address family not supported")
+	host, _, splitErr := net.SplitHostPort(addr)
+	return splitErr == nil && host == "::1" && strings.Contains(err.Error(), "address family not supported")
 }

@@ -15,7 +15,7 @@ var (
 	ErrNoActiveApp   = errors.New("no active app")
 	ErrDuplicateName = errors.New("app name already exists")
 	ErrDuplicatePort = errors.New("app port already exists")
-	ErrReservedPort  = errors.New("port 5173 is reserved for switchboard")
+	ErrReservedPort  = errors.New("port is reserved for switchboard")
 	ErrInvalidPort   = errors.New("invalid port")
 	ErrInvalidName   = errors.New("invalid app name")
 )
@@ -23,13 +23,17 @@ var (
 var appNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 type Registry struct {
-	mu         sync.RWMutex
-	apps       map[string]app.App
-	activeName string
+	mu           sync.RWMutex
+	apps         map[string]app.App
+	activeName   string
+	reservedPort int
 }
 
-func New() *Registry {
-	return &Registry{apps: make(map[string]app.App)}
+func New(reservedPort int) *Registry {
+	return &Registry{
+		apps:         make(map[string]app.App),
+		reservedPort: reservedPort,
+	}
 }
 
 func (r *Registry) Add(candidate app.App) error {
@@ -37,7 +41,7 @@ func (r *Registry) Add(candidate app.App) error {
 	if candidate.Port < 1 || candidate.Port > 65535 {
 		return ErrInvalidPort
 	}
-	if candidate.Port == 5173 {
+	if candidate.Port == r.reservedPort {
 		return ErrReservedPort
 	}
 	if !appNamePattern.MatchString(candidate.Name) {

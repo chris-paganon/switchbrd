@@ -13,7 +13,7 @@ import (
 )
 
 func TestHandlerReturns503WhenNoActiveApp(t *testing.T) {
-	reg := registry.New()
+	reg := registry.New(5173)
 	recorder := httptest.NewRecorder()
 
 	NewHandler(reg).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchboard/", nil))
@@ -24,7 +24,7 @@ func TestHandlerReturns503WhenNoActiveApp(t *testing.T) {
 }
 
 func TestHandlerSwitchesTargets(t *testing.T) {
-	reg := registry.New()
+	reg := registry.New(5173)
 	if err := reg.Add(app.App{Name: "alpha", Port: 5174}); err != nil {
 		t.Fatalf("add alpha: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestHandlerSwitchesTargets(t *testing.T) {
 }
 
 func TestHandlerReturns502WhenBackendIsDown(t *testing.T) {
-	reg := registry.New()
+	reg := registry.New(5173)
 	if err := reg.Add(app.App{Name: "ghost", Port: 5179}); err != nil {
 		t.Fatalf("add ghost: %v", err)
 	}

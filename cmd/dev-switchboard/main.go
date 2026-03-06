@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -18,10 +19,7 @@ import (
 	tuiapp "dev-switchboard/internal/tui"
 )
 
-var proxyListenAddrs = []string{
-	"127.0.0.1:5173",
-	"[::1]:5173",
-}
+const defaultProxyPort = 5173
 
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
@@ -39,9 +37,17 @@ func run(ctx context.Context, args []string) error {
 
 	switch args[0] {
 	case "serve", "daemon":
-		return runServer(ctx)
+		port, err := parseServerCommand(args[1:])
+		if err != nil {
+			return err
+		}
+		return runServer(ctx, port)
 	case "start":
-		return startCommand(ctx, client)
+		port, err := parseServerCommand(args[1:])
+		if err != nil {
+			return err
+		}
+		return startCommand(ctx, client, port)
 	case "stop":
 		return stopCommand(ctx, client)
 	case "status":
@@ -123,18 +129,19 @@ func run(ctx context.Context, args []string) error {
 	}
 }
 
-func runServer(ctx context.Context) error {
+func runServer(ctx context.Context, port int) error {
 	sigCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	return service.Run(sigCtx, service.Config{
 		SocketPath:       control.SocketPath(),
-		ProxyListenAddrs: proxyListenAddrs,
+		ProxyListenAddrs: proxyListenAddrs(port),
+		ReservedPort:     port,
 	})
 }
 
-func startCommand(ctx context.Context, client *control.Client) error {
-	started, err := startDaemonIfNeeded(ctx, client)
+func startCommand(ctx context.Context, client *control.Client, port int) error {
+	started, err := startDaemonIfNeeded(ctx, client, port)
 	if err != nil {
 		return err
 	}
@@ -182,10 +189,10 @@ func statusCommand(ctx context.Context, client *control.Client) error {
 }
 
 func ensureServerRunning(ctx context.Context, client *control.Client) (bool, error) {
-	return startDaemonIfNeeded(ctx, client)
+	return startDaemonIfNeeded(ctx, client, defaultProxyPort)
 }
 
-func startDaemonIfNeeded(ctx context.Context, client *control.Client) (bool, error) {
+func startDaemonIfNeeded(ctx context.Context, client *control.Client, port int) (bool, error) {
 	if err := client.Health(ctx); err == nil {
 		return false, nil
 	}
@@ -201,6 +208,9 @@ func startDaemonIfNeeded(ctx context.Context, client *control.Client) (bool, err
 	defer devNull.Close()
 
 	cmd := exec.Command(executable, "daemon")
+	if port != defaultProxyPort {
+		cmd.Args = append(cmd.Args, "--port", strconv.Itoa(port))
+	}
 	cmd.Stdout = devNull
 	cmd.Stderr = devNull
 	cmd.Stdin = devNull
@@ -246,6 +256,29 @@ func waitForShutdown(client *control.Client, timeout time.Duration) error {
 
 func usageError() error {
 	return fmt.Errorf("usage: dev-switchboard <serve|start|stop|status|tui|add|list|activate|active|rename|remove>")
+}
+
+func parseServerCommand(args []string) (int, error) {
+	port := defaultProxyPort
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--port":
+			if i+1 >= len(args) {
+				return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start> [--port <port>]")
+			}
+			parsedPort, err := strconv.Atoi(args[i+1])
+			if err != nil || parsedPort < 1 || parsedPort > 65535 {
+				return 0, fmt.Errorf("invalid port: %s", args[i+1])
+			}
+			port = parsedPort
+			i++
+		default:
+			return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start> [--port <port>]")
+		}
+	}
+
+	return port, nil
 }
 
 func parsePortNameCommand(command string, args []string) (int, string, error) {
@@ -330,4 +363,12 @@ func parseRenameCommand(args []string) (string, string, error) {
 
 func formatApp(candidate app.App) string {
 	return fmt.Sprintf("%s -> %d", candidate.Name, candidate.Port)
+}
+
+func proxyListenAddrs(port int) []string {
+	portValue := strconv.Itoa(port)
+	return []string{
+		net.JoinHostPort("127.0.0.1", portValue),
+		net.JoinHostPort("::1", portValue),
+	}
 }

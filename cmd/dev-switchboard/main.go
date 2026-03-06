@@ -141,6 +141,7 @@ func isHelpArg(arg string) bool {
 
 func printHelp(stdout io.Writer) {
 	fmt.Fprintf(stdout, `dev-switchboard routes a local proxy port to one active app.
+The default proxy port is 5173.
 
 Usage:
   dev-switchboard <command> [options]
@@ -165,7 +166,6 @@ Options:
   -h, --help          Show this help message.
 
 Examples:
-  dev-switchboard serve
   dev-switchboard start --port 6000
   dev-switchboard add 5175 --name my-app
   dev-switchboard activate my-app

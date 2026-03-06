@@ -185,7 +185,7 @@ func (m model) View() string {
 
 	return appShellStyle.
 		Width(maxInt(m.width, 80)).
-		Padding(0, 1).
+		Padding(0, 1, 1, 1).
 		Render(lipgloss.JoinVertical(lipgloss.Left, top, body))
 }
 

@@ -76,3 +76,56 @@ func TestRegistryValidatesNames(t *testing.T) {
 		t.Fatalf("unexpected apps: %+v", apps)
 	}
 }
+
+func TestRegistryFindByPort(t *testing.T) {
+	reg := New()
+	if err := reg.Add(app.App{Name: "5175", Port: 5175}); err != nil {
+		t.Fatalf("add app: %v", err)
+	}
+
+	candidate, ok := reg.FindByPort(5175)
+	if !ok {
+		t.Fatal("expected to find app by port")
+	}
+	if candidate.Name != "5175" {
+		t.Fatalf("unexpected app: %+v", candidate)
+	}
+}
+
+func TestRegistryRenamePreservesActiveSelection(t *testing.T) {
+	reg := New()
+	if err := reg.Add(app.App{Name: "5175", Port: 5175}); err != nil {
+		t.Fatalf("add app: %v", err)
+	}
+	if _, err := reg.Activate("5175"); err != nil {
+		t.Fatalf("activate app: %v", err)
+	}
+
+	renamed, err := reg.Rename("5175", "my-app")
+	if err != nil {
+		t.Fatalf("rename app: %v", err)
+	}
+	if renamed.Name != "my-app" || renamed.Port != 5175 {
+		t.Fatalf("unexpected renamed app: %+v", renamed)
+	}
+
+	active, ok := reg.Active()
+	if !ok || active.Name != "my-app" {
+		t.Fatalf("unexpected active app after rename: %+v", active)
+	}
+}
+
+func TestRegistryRenamePort(t *testing.T) {
+	reg := New()
+	if err := reg.Add(app.App{Name: "existing", Port: 5175}); err != nil {
+		t.Fatalf("add app: %v", err)
+	}
+
+	renamed, err := reg.RenamePort(5175, "renamed")
+	if err != nil {
+		t.Fatalf("rename port: %v", err)
+	}
+	if renamed.Name != "renamed" {
+		t.Fatalf("unexpected renamed app: %+v", renamed)
+	}
+}

@@ -86,6 +86,56 @@ func (r *Registry) Activate(name string) (app.App, error) {
 	return candidate, nil
 }
 
+func (r *Registry) FindByPort(port int) (app.App, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, candidate := range r.apps {
+		if candidate.Port == port {
+			return candidate, true
+		}
+	}
+
+	return app.App{}, false
+}
+
+func (r *Registry) Rename(oldName string, newName string) (app.App, error) {
+	newName = strings.TrimSpace(newName)
+	if !appNamePattern.MatchString(newName) {
+		return app.App{}, ErrInvalidName
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	candidate, exists := r.apps[oldName]
+	if !exists {
+		return app.App{}, ErrAppNotFound
+	}
+	if oldName != newName {
+		if _, exists := r.apps[newName]; exists {
+			return app.App{}, ErrDuplicateName
+		}
+		delete(r.apps, oldName)
+	}
+
+	candidate.Name = newName
+	r.apps[newName] = candidate
+	if r.activeName == oldName {
+		r.activeName = newName
+	}
+
+	return candidate, nil
+}
+
+func (r *Registry) RenamePort(port int, newName string) (app.App, error) {
+	candidate, ok := r.FindByPort(port)
+	if !ok {
+		return app.App{}, ErrAppNotFound
+	}
+	return r.Rename(candidate.Name, newName)
+}
+
 func (r *Registry) Active() (app.App, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

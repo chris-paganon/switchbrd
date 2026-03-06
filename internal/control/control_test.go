@@ -13,7 +13,7 @@ import (
 func TestServerHandlersLifecycle(t *testing.T) {
 	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
 
-	postJSON(t, server, http.MethodPost, "/apps", addRequest{Name: "alpha", Port: 5174}, http.StatusCreated)
+	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5174}, http.StatusCreated)
 
 	listRecorder := request(t, server, http.MethodGet, "/apps", nil)
 	if listRecorder.Code != http.StatusOK {
@@ -25,6 +25,9 @@ func TestServerHandlersLifecycle(t *testing.T) {
 	}
 	if len(listed.Apps) != 1 || listed.ActiveName != "" {
 		t.Fatalf("unexpected list response: %+v", listed)
+	}
+	if listed.Apps[0].Name != "5174" {
+		t.Fatalf("unexpected default app name: %+v", listed.Apps[0])
 	}
 
 	activeRecorder := request(t, server, http.MethodGet, "/active", nil)
@@ -39,14 +42,14 @@ func TestServerHandlersLifecycle(t *testing.T) {
 		t.Fatalf("expected no active app, got %+v", inactive.App)
 	}
 
-	postJSON(t, server, http.MethodPut, "/active", activateRequest{Name: "alpha"}, http.StatusOK)
+	postJSON(t, server, http.MethodPut, "/active", activateRequest{Port: 5174, Name: "alpha"}, http.StatusOK)
 
 	activeRecorder = request(t, server, http.MethodGet, "/active", nil)
 	var active activeResponse
 	if err := json.Unmarshal(activeRecorder.Body.Bytes(), &active); err != nil {
 		t.Fatalf("unmarshal active after activate: %v", err)
 	}
-	if active.App == nil || active.App.Name != "alpha" {
+	if active.App == nil || active.App.Name != "alpha" || active.App.Port != 5174 {
 		t.Fatalf("unexpected active app: %+v", active.App)
 	}
 
@@ -56,11 +59,36 @@ func TestServerHandlersLifecycle(t *testing.T) {
 	}
 }
 
+func TestServerRenameByOldName(t *testing.T) {
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+
+	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175}, http.StatusCreated)
+	renameRecorder := request(t, server, http.MethodPut, "/rename", renameRequest{OldName: "5175", NewName: "my-app"})
+	if renameRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected rename status: %d body=%s", renameRecorder.Code, renameRecorder.Body.String())
+	}
+
+	listRecorder := request(t, server, http.MethodGet, "/apps", nil)
+	var listed listResponse
+	if err := json.Unmarshal(listRecorder.Body.Bytes(), &listed); err != nil {
+		t.Fatalf("unmarshal list: %v", err)
+	}
+	if listed.Apps[0].Name != "my-app" {
+		t.Fatalf("unexpected renamed app: %+v", listed.Apps[0])
+	}
+}
+
 func TestServerRejectsInvalidNames(t *testing.T) {
 	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+
 	recorder := request(t, server, http.MethodDelete, "/apps/bad/name", nil)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unexpected status: %d", recorder.Code)
+	}
+
+	recorder = request(t, server, http.MethodPut, "/rename", renameRequest{OldName: "5175", NewName: "bad/name"})
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected rename status: %d", recorder.Code)
 	}
 }
 

@@ -3,12 +3,22 @@ package control
 import "dev-switchboard/internal/app"
 
 type addRequest struct {
-	Name string `json:"name"`
 	Port int    `json:"port"`
+	Name string `json:"name,omitempty"`
 }
 
 type activateRequest struct {
-	Name string `json:"name"`
+	Port int    `json:"port"`
+	Name string `json:"name,omitempty"`
+}
+
+type renameRequest struct {
+	OldName string `json:"old_name"`
+	NewName string `json:"new_name"`
+}
+
+type appResponse struct {
+	App app.App `json:"app"`
 }
 
 type activeResponse struct {

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"dev-switchboard/internal/app"
@@ -25,6 +26,7 @@ func NewServer(socket string, reg *registry.Registry) *Server {
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/apps", s.handleApps)
 	mux.HandleFunc("/active", s.handleActive)
+	mux.HandleFunc("/rename", s.handleRename)
 	mux.HandleFunc("/apps/", s.handleNamedApps)
 	s.server = &http.Server{Handler: mux}
 	return s
@@ -73,11 +75,15 @@ func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		if err := s.registry.Add(app.App{Name: req.Name, Port: req.Port}); err != nil {
+		candidate := app.App{Name: req.Name, Port: req.Port}
+		if candidate.Name == "" {
+			candidate.Name = strconv.Itoa(candidate.Port)
+		}
+		if err := s.registry.Add(candidate); err != nil {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		respondJSON(w, http.StatusCreated, map[string]string{"status": "ok"})
+		respondJSON(w, http.StatusCreated, appResponse{App: candidate})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -98,7 +104,27 @@ func (s *Server) handleActive(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
-		candidate, err := s.registry.Activate(req.Name)
+		candidate, ok := s.registry.FindByPort(req.Port)
+		if ok {
+			if req.Name != "" && req.Name != candidate.Name {
+				var err error
+				candidate, err = s.registry.Rename(candidate.Name, req.Name)
+				if err != nil {
+					respondError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+			}
+		} else {
+			candidate = app.App{Name: req.Name, Port: req.Port}
+			if candidate.Name == "" {
+				candidate.Name = strconv.Itoa(candidate.Port)
+			}
+			if err := s.registry.Add(candidate); err != nil {
+				respondError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		candidate, err := s.registry.Activate(candidate.Name)
 		if err != nil {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
@@ -107,6 +133,27 @@ func (s *Server) handleActive(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req renameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	candidate, err := s.registry.Rename(req.OldName, req.NewName)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, appResponse{App: candidate})
 }
 
 func (s *Server) handleNamedApps(w http.ResponseWriter, r *http.Request) {

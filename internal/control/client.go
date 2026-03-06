@@ -45,13 +45,20 @@ func (c *Client) Health(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) Add(ctx context.Context, name string, port int) error {
+func (c *Client) Add(ctx context.Context, port int, name string) (app.App, error) {
 	resp, err := c.do(ctx, http.MethodPost, "/apps", addRequest{Name: name, Port: port})
 	if err != nil {
-		return err
+		return app.App{}, err
 	}
 	defer resp.Body.Close()
-	return decodeError(resp)
+	if err := decodeError(resp); err != nil {
+		return app.App{}, err
+	}
+	var payload appResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return app.App{}, err
+	}
+	return payload.App, nil
 }
 
 func (c *Client) List(ctx context.Context) ([]app.App, string, error) {
@@ -70,8 +77,8 @@ func (c *Client) List(ctx context.Context) ([]app.App, string, error) {
 	return payload.Apps, payload.ActiveName, nil
 }
 
-func (c *Client) Activate(ctx context.Context, name string) (*app.App, error) {
-	resp, err := c.do(ctx, http.MethodPut, "/active", activateRequest{Name: name})
+func (c *Client) Activate(ctx context.Context, port int, name string) (*app.App, error) {
+	resp, err := c.do(ctx, http.MethodPut, "/active", activateRequest{Port: port, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +89,22 @@ func (c *Client) Activate(ctx context.Context, name string) (*app.App, error) {
 	var payload activeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, err
+	}
+	return payload.App, nil
+}
+
+func (c *Client) Rename(ctx context.Context, oldName string, newName string) (app.App, error) {
+	resp, err := c.do(ctx, http.MethodPut, "/rename", renameRequest{OldName: oldName, NewName: newName})
+	if err != nil {
+		return app.App{}, err
+	}
+	defer resp.Body.Close()
+	if err := decodeError(resp); err != nil {
+		return app.App{}, err
+	}
+	var payload appResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return app.App{}, err
 	}
 	return payload.App, nil
 }

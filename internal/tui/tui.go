@@ -34,7 +34,6 @@ type refreshMsg struct {
 }
 
 type actionResultMsg struct {
-	message string
 	err     error
 	quit    bool
 	detach  bool
@@ -51,7 +50,6 @@ type model struct {
 	mode       mode
 	portInput  textinput.Model
 	nameInput  textinput.Model
-	statusLine string
 	errLine    string
 	ready      bool
 	width      int
@@ -84,8 +82,6 @@ var (
 			Foreground(lipgloss.Color("109"))
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250"))
-	statusStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("151"))
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("203")).
 			Bold(true)
@@ -105,7 +101,6 @@ func Run(client *control.Client, ownedServer bool) error {
 		ownedServer: ownedServer,
 		portInput:   portInput,
 		nameInput:   nameInput,
-		statusLine:  "loading...",
 	}
 
 	_, err := tea.NewProgram(m).Run()
@@ -151,7 +146,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.errLine = ""
-		m.statusLine = msg.message
 		if msg.detach {
 			m.detached = true
 		}
@@ -280,9 +274,6 @@ func (m model) renderActionsPanel() string {
 			"j/k    move",
 		)
 	}
-	if m.statusLine != "" {
-		lines = append(lines, "", statusStyle.Render(m.statusLine))
-	}
 	if m.errLine != "" {
 		lines = append(lines, "", errorStyle.Render(m.errLine))
 	}
@@ -331,12 +322,12 @@ func (m model) updateListMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "s":
-		return m, shutdownCmd(m.client, true, false, "stopping server...")
+		return m, shutdownCmd(m.client, true, false)
 	case "d":
-		return m, actionResultCmd("detached", nil, true, true)
+		return m, actionResultCmd(nil, true, true)
 	case "q":
 		if m.ownedServer && !m.detached {
-			return m, shutdownCmd(m.client, true, false, "stopping owned server...")
+			return m, shutdownCmd(m.client, true, false)
 		}
 		return m, tea.Quit
 	case "R":
@@ -453,11 +444,10 @@ func addCmd(client *control.Client, port int, name string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		candidate, err := client.Add(ctx, port, name)
-		if err != nil {
+		if _, err := client.Add(ctx, port, name); err != nil {
 			return actionResultMsg{err: err}
 		}
-		return actionResultMsg{message: fmt.Sprintf("added %s", formatApp(candidate))}
+		return actionResultMsg{}
 	}
 }
 
@@ -465,11 +455,10 @@ func renameCmd(client *control.Client, oldName string, newName string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		candidate, err := client.Rename(ctx, oldName, newName)
-		if err != nil {
+		if _, err := client.Rename(ctx, oldName, newName); err != nil {
 			return actionResultMsg{err: err}
 		}
-		return actionResultMsg{message: fmt.Sprintf("renamed %s", formatApp(candidate))}
+		return actionResultMsg{}
 	}
 }
 
@@ -480,7 +469,7 @@ func removeCmd(client *control.Client, name string) tea.Cmd {
 		if err := client.Remove(ctx, name); err != nil {
 			return actionResultMsg{err: err}
 		}
-		return actionResultMsg{message: fmt.Sprintf("removed %s", name)}
+		return actionResultMsg{}
 	}
 }
 
@@ -488,28 +477,27 @@ func activateCmd(client *control.Client, target string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		candidate, err := client.Activate(ctx, target, "")
-		if err != nil {
+		if _, err := client.Activate(ctx, target, ""); err != nil {
 			return actionResultMsg{err: err}
 		}
-		return actionResultMsg{message: fmt.Sprintf("active app: %s", formatApp(*candidate))}
+		return actionResultMsg{}
 	}
 }
 
-func shutdownCmd(client *control.Client, quit bool, detach bool, message string) tea.Cmd {
+func shutdownCmd(client *control.Client, quit bool, detach bool) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if err := client.Shutdown(ctx); err != nil {
 			return actionResultMsg{err: err}
 		}
-		return actionResultMsg{message: message, quit: quit, detach: detach}
+		return actionResultMsg{quit: quit, detach: detach}
 	}
 }
 
-func actionResultCmd(message string, err error, quit bool, detach bool) tea.Cmd {
+func actionResultCmd(err error, quit bool, detach bool) tea.Cmd {
 	return func() tea.Msg {
-		return actionResultMsg{message: message, err: err, quit: quit, detach: detach}
+		return actionResultMsg{err: err, quit: quit, detach: detach}
 	}
 }
 

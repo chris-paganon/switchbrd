@@ -45,6 +45,23 @@ func (c *Client) Health(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) Status(ctx context.Context) (StatusData, error) {
+	resp, err := c.do(ctx, http.MethodGet, "/status", nil)
+	if err != nil {
+		return StatusData{}, err
+	}
+	defer resp.Body.Close()
+	if err := decodeError(resp); err != nil {
+		return StatusData{}, err
+	}
+
+	var payload StatusData
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return StatusData{}, err
+	}
+	return payload, nil
+}
+
 func (c *Client) Add(ctx context.Context, port int, name string) (app.App, error) {
 	resp, err := c.do(ctx, http.MethodPost, "/apps", addRequest{Name: name, Port: port})
 	if err != nil {
@@ -127,6 +144,15 @@ func (c *Client) Active(ctx context.Context) (*app.App, error) {
 
 func (c *Client) Remove(ctx context.Context, name string) error {
 	resp, err := c.do(ctx, http.MethodDelete, path.Join("/apps", url.PathEscape(name)), nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return decodeError(resp)
+}
+
+func (c *Client) Shutdown(ctx context.Context) error {
+	resp, err := c.do(ctx, http.MethodPost, "/shutdown", nil)
 	if err != nil {
 		return err
 	}

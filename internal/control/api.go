@@ -21,6 +21,14 @@ type appResponse struct {
 	App app.App `json:"app"`
 }
 
+type StatusData struct {
+	Running          bool     `json:"running"`
+	PID              int      `json:"pid"`
+	AppCount         int      `json:"app_count"`
+	Active           *app.App `json:"active,omitempty"`
+	ProxyListenAddrs []string `json:"proxy_listen_addrs,omitempty"`
+}
+
 type activeResponse struct {
 	App *app.App `json:"app,omitempty"`
 }

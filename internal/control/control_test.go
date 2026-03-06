@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"dev-switchboard/internal/registry"
 )
 
 func TestServerHandlersLifecycle(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5174}, http.StatusCreated)
 
@@ -60,7 +61,7 @@ func TestServerHandlersLifecycle(t *testing.T) {
 }
 
 func TestServerRenameByOldName(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175}, http.StatusCreated)
 	renameRecorder := request(t, server, http.MethodPut, "/rename", renameRequest{OldName: "5175", NewName: "my-app"})
@@ -79,7 +80,7 @@ func TestServerRenameByOldName(t *testing.T) {
 }
 
 func TestServerActivatesExistingName(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175, Name: "my-app"}, http.StatusCreated)
 	postJSON(t, server, http.MethodPut, "/active", activateRequest{Target: "my-app"}, http.StatusOK)
@@ -95,7 +96,7 @@ func TestServerActivatesExistingName(t *testing.T) {
 }
 
 func TestServerRejectsInvalidNames(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New())
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(), ServerOptions{})
 
 	recorder := request(t, server, http.MethodDelete, "/apps/bad/name", nil)
 	if recorder.Code != http.StatusBadRequest {
@@ -105,6 +106,40 @@ func TestServerRejectsInvalidNames(t *testing.T) {
 	recorder = request(t, server, http.MethodPut, "/rename", renameRequest{OldName: "5175", NewName: "bad/name"})
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("unexpected rename status: %d", recorder.Code)
+	}
+}
+
+func TestServerStatusAndShutdown(t *testing.T) {
+	shutdownCalled := make(chan struct{}, 1)
+	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(), ServerOptions{
+		Status: func() StatusData {
+			return StatusData{Running: true, PID: 123, AppCount: 2, ProxyListenAddrs: []string{"127.0.0.1:5173"}}
+		},
+		Shutdown: func() {
+			shutdownCalled <- struct{}{}
+		},
+	})
+
+	statusRecorder := request(t, server, http.MethodGet, "/status", nil)
+	if statusRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status code: %d", statusRecorder.Code)
+	}
+	var status StatusData
+	if err := json.Unmarshal(statusRecorder.Body.Bytes(), &status); err != nil {
+		t.Fatalf("unmarshal status: %v", err)
+	}
+	if !status.Running || status.PID != 123 || status.AppCount != 2 {
+		t.Fatalf("unexpected status payload: %+v", status)
+	}
+
+	shutdownRecorder := request(t, server, http.MethodPost, "/shutdown", nil)
+	if shutdownRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected shutdown status code: %d", shutdownRecorder.Code)
+	}
+	select {
+	case <-shutdownCalled:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("expected shutdown callback to be invoked")
 	}
 }
 

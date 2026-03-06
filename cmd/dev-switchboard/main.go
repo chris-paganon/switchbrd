@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -16,8 +14,8 @@ import (
 
 	"dev-switchboard/internal/app"
 	"dev-switchboard/internal/control"
-	"dev-switchboard/internal/proxy"
-	"dev-switchboard/internal/registry"
+	"dev-switchboard/internal/service"
+	tuiapp "dev-switchboard/internal/tui"
 )
 
 var proxyListenAddrs = []string{
@@ -40,8 +38,20 @@ func run(ctx context.Context, args []string) error {
 	client := control.NewClient(control.SocketPath())
 
 	switch args[0] {
-	case "serve":
-		return serve(ctx)
+	case "serve", "daemon":
+		return runServer(ctx)
+	case "start":
+		return startCommand(ctx, client)
+	case "stop":
+		return stopCommand(ctx, client)
+	case "status":
+		return statusCommand(ctx, client)
+	case "tui":
+		ownedServer, err := ensureServerRunning(ctx, client)
+		if err != nil {
+			return err
+		}
+		return tuiapp.Run(client, ownedServer)
 	case "add":
 		port, name, err := parsePortNameCommand("add", args[1:])
 		if err != nil {
@@ -108,105 +118,134 @@ func run(ctx context.Context, args []string) error {
 			return fmt.Errorf("usage: dev-switchboard remove <name>")
 		}
 		return client.Remove(ctx, args[1])
-
 	default:
 		return usageError()
 	}
 }
 
-func serve(ctx context.Context) error {
-	reg := registry.New()
-	controlServer := control.NewServer(control.SocketPath(), reg)
-	if err := controlServer.Start(); err != nil {
-		return fmt.Errorf("start control server: %w", err)
-	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		_ = controlServer.Shutdown(shutdownCtx)
-	}()
-
-	handler := proxy.NewHandler(reg)
-
-	proxyServers, listeners, err := startProxyServers(handler, proxyListenAddrs)
-	if err != nil {
-		return err
-	}
-	defer closeListeners(listeners)
-
-	errCh := make(chan error, len(proxyServers))
-	for i := range proxyServers {
-		server := proxyServers[i]
-		listener := listeners[i]
-		go func() {
-			errCh <- server.Serve(listener)
-		}()
-	}
-
+func runServer(ctx context.Context) error {
 	sigCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	select {
-	case <-sigCtx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		for _, server := range proxyServers {
-			if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				return err
-			}
-		}
-		for range proxyServers {
-			serveErr := <-errCh
-			if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-				return serveErr
-			}
-		}
-		return nil
-	case err := <-errCh:
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
+	return service.Run(sigCtx, service.Config{
+		SocketPath:       control.SocketPath(),
+		ProxyListenAddrs: proxyListenAddrs,
+	})
+}
+
+func startCommand(ctx context.Context, client *control.Client) error {
+	started, err := startDaemonIfNeeded(ctx, client)
+	if err != nil {
+		return err
+	}
+	if !started {
+		fmt.Println("already running")
 		return nil
 	}
+	fmt.Println("started")
+	return nil
+}
+
+func stopCommand(ctx context.Context, client *control.Client) error {
+	if err := client.Health(ctx); err != nil {
+		fmt.Println("already stopped")
+		return nil
+	}
+	if err := client.Shutdown(ctx); err != nil {
+		return err
+	}
+	if err := waitForShutdown(client, 5*time.Second); err != nil {
+		return err
+	}
+	fmt.Println("stopped")
+	return nil
+}
+
+func statusCommand(ctx context.Context, client *control.Client) error {
+	status, err := client.Status(ctx)
+	if err != nil {
+		fmt.Println("stopped")
+		return nil
+	}
+	fmt.Println("running")
+	fmt.Printf("pid: %d\n", status.PID)
+	fmt.Printf("apps: %d\n", status.AppCount)
+	if status.Active == nil {
+		fmt.Println("active: none")
+	} else {
+		fmt.Printf("active: %s\n", formatApp(*status.Active))
+	}
+	if len(status.ProxyListenAddrs) > 0 {
+		fmt.Printf("listen: %s\n", strings.Join(status.ProxyListenAddrs, ", "))
+	}
+	return nil
+}
+
+func ensureServerRunning(ctx context.Context, client *control.Client) (bool, error) {
+	return startDaemonIfNeeded(ctx, client)
+}
+
+func startDaemonIfNeeded(ctx context.Context, client *control.Client) (bool, error) {
+	if err := client.Health(ctx); err == nil {
+		return false, nil
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		return false, err
+	}
+	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+	if err != nil {
+		return false, err
+	}
+	defer devNull.Close()
+
+	cmd := exec.Command(executable, "daemon")
+	cmd.Stdout = devNull
+	cmd.Stderr = devNull
+	cmd.Stdin = devNull
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return false, err
+	}
+	_ = cmd.Process.Release()
+
+	if err := waitForHealth(client, 5*time.Second); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func waitForHealth(client *control.Client, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		err := client.Health(ctx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out waiting for switchboard to start")
+}
+
+func waitForShutdown(client *control.Client, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		err := client.Health(ctx)
+		cancel()
+		if err != nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out waiting for switchboard to stop")
 }
 
 func usageError() error {
-	return fmt.Errorf("usage: dev-switchboard <serve|add|list|activate|active|rename|remove>")
-}
-
-func startProxyServers(handler http.Handler, addrs []string) ([]*http.Server, []net.Listener, error) {
-	servers := make([]*http.Server, 0, len(addrs))
-	listeners := make([]net.Listener, 0, len(addrs))
-
-	for _, addr := range addrs {
-		server := &http.Server{Addr: addr, Handler: handler}
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			if isOptionalIPv6Loopback(addr, err) {
-				continue
-			}
-			closeListeners(listeners)
-			return nil, nil, fmt.Errorf("listen on %s: %w", addr, err)
-		}
-		servers = append(servers, server)
-		listeners = append(listeners, listener)
-	}
-
-	if len(servers) == 0 {
-		return nil, nil, fmt.Errorf("could not bind switchboard proxy listeners")
-	}
-
-	return servers, listeners, nil
-}
-
-func closeListeners(listeners []net.Listener) {
-	for _, listener := range listeners {
-		_ = listener.Close()
-	}
-}
-
-func isOptionalIPv6Loopback(addr string, err error) bool {
-	return addr == "[::1]:5173" && strings.Contains(err.Error(), "address family not supported")
+	return fmt.Errorf("usage: dev-switchboard <serve|start|stop|status|tui|add|list|activate|active|rename|remove>")
 }
 
 func parsePortNameCommand(command string, args []string) (int, string, error) {

@@ -15,15 +15,29 @@ import (
 )
 
 type Server struct {
-	registry *registry.Registry
-	server   *http.Server
-	socket   string
+	registry   *registry.Registry
+	server     *http.Server
+	socket     string
+	statusFn   func() StatusData
+	shutdownFn func()
 }
 
-func NewServer(socket string, reg *registry.Registry) *Server {
-	s := &Server{registry: reg, socket: socket}
+type ServerOptions struct {
+	Status   func() StatusData
+	Shutdown func()
+}
+
+func NewServer(socket string, reg *registry.Registry, options ServerOptions) *Server {
+	s := &Server{
+		registry:   reg,
+		socket:     socket,
+		statusFn:   options.Status,
+		shutdownFn: options.Shutdown,
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/status", s.handleStatus)
+	mux.HandleFunc("/shutdown", s.handleShutdown)
 	mux.HandleFunc("/apps", s.handleApps)
 	mux.HandleFunc("/active", s.handleActive)
 	mux.HandleFunc("/rename", s.handleRename)
@@ -61,6 +75,39 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	status := StatusData{
+		Running:  true,
+		PID:      os.Getpid(),
+		AppCount: len(s.registry.List()),
+	}
+	if active, ok := s.registry.Active(); ok {
+		status.Active = &active
+	}
+	if s.statusFn != nil {
+		status = s.statusFn()
+	}
+
+	respondJSON(w, http.StatusOK, status)
+}
+
+func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "shutting down"})
+	if s.shutdownFn != nil {
+		go s.shutdownFn()
+	}
 }
 
 func (s *Server) handleApps(w http.ResponseWriter, r *http.Request) {

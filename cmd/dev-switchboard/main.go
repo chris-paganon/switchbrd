@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -22,15 +23,16 @@ import (
 const defaultProxyPort = 5173
 
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err != nil {
+	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
 		log.Printf("error: %v", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return usageError()
+func run(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printHelp(stdout)
+		return nil
 	}
 
 	client := control.NewClient(control.SocketPath())
@@ -131,6 +133,43 @@ func run(ctx context.Context, args []string) error {
 	default:
 		return usageError()
 	}
+}
+
+func isHelpArg(arg string) bool {
+	return arg == "--help" || arg == "-h"
+}
+
+func printHelp(stdout io.Writer) {
+	fmt.Fprintf(stdout, `dev-switchboard routes a local proxy port to one active app.
+
+Usage:
+  dev-switchboard <command> [options]
+
+Commands:
+  serve, daemon       Run the switchboard server in the foreground.
+  start               Start the switchboard server in the background.
+  stop                Stop the running switchboard server.
+  status              Show whether the switchboard server is running.
+  tui                 Launch the terminal UI, starting the server if needed.
+  add <port>          Register an app port, optionally with --name.
+  list                List registered apps and mark the active app.
+  activate <port|name>
+                      Make the selected app active.
+  active              Show the current active app.
+  rename <old> <new>  Rename a registered app.
+  remove <name>       Remove a registered app.
+
+Options:
+  -p, --port <port>   Override the proxy port for serve/start/tui/daemon.
+  -n, --name <name>   Set or override an app name for add/activate.
+  -h, --help          Show this help message.
+
+Examples:
+  dev-switchboard serve
+  dev-switchboard start --port 6000
+  dev-switchboard add 5175 --name my-app
+  dev-switchboard activate my-app
+`)
 }
 
 func runServer(ctx context.Context, port int) error {

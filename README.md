@@ -7,6 +7,9 @@ When `serve` is running, switchboard claims loopback port `5173` by default so V
 ## Commands
 
 ```sh
+go run ./cmd/dev-switchboard
+go run ./cmd/dev-switchboard --help
+go run ./cmd/dev-switchboard -h
 go run ./cmd/dev-switchboard serve
 go run ./cmd/dev-switchboard serve --port 6000
 go run ./cmd/dev-switchboard serve -p 6000
@@ -27,3 +30,5 @@ go run ./cmd/dev-switchboard active
 go run ./cmd/dev-switchboard rename 5175 my-app
 go run ./cmd/dev-switchboard remove my-app
 ```
+
+Running without a command, or with `--help` / `-h`, prints the built-in help message with command descriptions and examples.

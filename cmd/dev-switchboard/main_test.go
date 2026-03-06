@@ -1,6 +1,45 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"context"
+	"strings"
+	"testing"
+)
+
+func TestRunWithoutArgsPrintsHelp(t *testing.T) {
+	var stdout bytes.Buffer
+
+	if err := run(context.Background(), nil, &stdout); err != nil {
+		t.Fatalf("run without args: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Usage:") {
+		t.Fatalf("expected usage in help output, got %q", output)
+	}
+	if !strings.Contains(output, "Commands:") {
+		t.Fatalf("expected commands in help output, got %q", output)
+	}
+}
+
+func TestRunHelpFlagPrintsHelp(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {"-h"}} {
+		var stdout bytes.Buffer
+
+		if err := run(context.Background(), args, &stdout); err != nil {
+			t.Fatalf("run %v: %v", args, err)
+		}
+
+		output := stdout.String()
+		if !strings.Contains(output, "Options:") {
+			t.Fatalf("expected options in help output for %v, got %q", args, output)
+		}
+		if !strings.Contains(output, "Examples:") {
+			t.Fatalf("expected examples in help output for %v, got %q", args, output)
+		}
+	}
+}
 
 func TestParseServerCommandDefaultsPort(t *testing.T) {
 	port, err := parseServerCommand(nil)

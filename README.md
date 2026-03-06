@@ -8,9 +8,12 @@ When `serve` is running, switchboard claims loopback port `5173` so Vite apps st
 
 ```sh
 go run ./cmd/dev-switchboard serve
-go run ./cmd/dev-switchboard add marketing 5174
+go run ./cmd/dev-switchboard add 5174
+go run ./cmd/dev-switchboard add 5175 --name my-app
 go run ./cmd/dev-switchboard list
-go run ./cmd/dev-switchboard activate marketing
+go run ./cmd/dev-switchboard activate 5174
+go run ./cmd/dev-switchboard activate 5175 --name my-app
 go run ./cmd/dev-switchboard active
-go run ./cmd/dev-switchboard remove marketing
+go run ./cmd/dev-switchboard rename 5175 my-app
+go run ./cmd/dev-switchboard remove my-app
 ```

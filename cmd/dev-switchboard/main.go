@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"dev-switchboard/internal/app"
 	"dev-switchboard/internal/control"
 	"dev-switchboard/internal/proxy"
 	"dev-switchboard/internal/registry"
@@ -42,14 +43,16 @@ func run(ctx context.Context, args []string) error {
 	case "serve":
 		return serve(ctx)
 	case "add":
-		if len(args) != 3 {
-			return fmt.Errorf("usage: dev-switchboard add <name> <port>")
-		}
-		port, err := strconv.Atoi(args[2])
+		port, name, err := parsePortNameCommand("add", args[1:])
 		if err != nil {
-			return fmt.Errorf("invalid port: %w", err)
+			return err
 		}
-		return client.Add(ctx, args[1], port)
+		candidate, err := client.Add(ctx, port, name)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("added %s\n", formatApp(candidate))
+		return nil
 	case "list":
 		apps, activeName, err := client.List(ctx)
 		if err != nil {
@@ -64,18 +67,19 @@ func run(ctx context.Context, args []string) error {
 			if candidate.Name == activeName {
 				marker = "*"
 			}
-			fmt.Printf("%s %s %d\n", marker, candidate.Name, candidate.Port)
+			fmt.Printf("%s %s\n", marker, formatApp(candidate))
 		}
 		return nil
 	case "activate":
-		if len(args) != 2 {
-			return fmt.Errorf("usage: dev-switchboard activate <name>")
-		}
-		candidate, err := client.Activate(ctx, args[1])
+		port, name, err := parsePortNameCommand("activate", args[1:])
 		if err != nil {
 			return err
 		}
-		fmt.Printf("active app: %s %d\n", candidate.Name, candidate.Port)
+		candidate, err := client.Activate(ctx, port, name)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("active app: %s\n", formatApp(*candidate))
 		return nil
 	case "active":
 		candidate, err := client.Active(ctx)
@@ -86,7 +90,18 @@ func run(ctx context.Context, args []string) error {
 			fmt.Println("none")
 			return nil
 		}
-		fmt.Printf("%s %d\n", candidate.Name, candidate.Port)
+		fmt.Println(formatApp(*candidate))
+		return nil
+	case "rename":
+		oldName, newName, err := parseRenameCommand(args[1:])
+		if err != nil {
+			return err
+		}
+		candidate, err := client.Rename(ctx, oldName, newName)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("renamed %s\n", formatApp(candidate))
 		return nil
 	case "remove":
 		if len(args) != 2 {
@@ -156,7 +171,7 @@ func serve(ctx context.Context) error {
 }
 
 func usageError() error {
-	return fmt.Errorf("usage: dev-switchboard <serve|add|list|activate|active|remove>")
+	return fmt.Errorf("usage: dev-switchboard <serve|add|list|activate|active|rename|remove>")
 }
 
 func startProxyServers(handler http.Handler, addrs []string) ([]*http.Server, []net.Listener, error) {
@@ -192,4 +207,53 @@ func closeListeners(listeners []net.Listener) {
 
 func isOptionalIPv6Loopback(addr string, err error) bool {
 	return addr == "[::1]:5173" && strings.Contains(err.Error(), "address family not supported")
+}
+
+func parsePortNameCommand(command string, args []string) (int, string, error) {
+	var (
+		name    string
+		portArg string
+	)
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name", "-n":
+			if i+1 >= len(args) {
+				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+			}
+			name = args[i+1]
+			i++
+		default:
+			if strings.HasPrefix(args[i], "-") {
+				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+			}
+			if portArg != "" {
+				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+			}
+			portArg = args[i]
+		}
+	}
+
+	if portArg == "" {
+		return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+	}
+
+	port, err := strconv.Atoi(portArg)
+	if err != nil {
+		return 0, "", fmt.Errorf("invalid port: %w", err)
+	}
+
+	return port, strings.TrimSpace(name), nil
+}
+
+func parseRenameCommand(args []string) (string, string, error) {
+	if len(args) != 2 {
+		return "", "", fmt.Errorf("usage: dev-switchboard rename <old-name> <new-name>")
+	}
+
+	return strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), nil
+}
+
+func formatApp(candidate app.App) string {
+	return fmt.Sprintf("%s -> %d", candidate.Name, candidate.Port)
 }

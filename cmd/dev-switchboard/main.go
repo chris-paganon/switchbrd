@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +18,11 @@ import (
 	"dev-switchboard/internal/proxy"
 	"dev-switchboard/internal/registry"
 )
+
+var proxyListenAddrs = []string{
+	"127.0.0.1:5173",
+	"[::1]:5173",
+}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
@@ -105,20 +111,22 @@ func serve(ctx context.Context) error {
 		_ = controlServer.Shutdown(shutdownCtx)
 	}()
 
-	proxyServer := &http.Server{
-		Addr:    "127.0.0.1:5173",
-		Handler: proxy.NewHandler(reg),
-	}
+	handler := proxy.NewHandler(reg)
 
-	listener, err := net.Listen("tcp", proxyServer.Addr)
+	proxyServers, listeners, err := startProxyServers(handler, proxyListenAddrs)
 	if err != nil {
-		return fmt.Errorf("listen on %s: %w", proxyServer.Addr, err)
+		return err
 	}
+	defer closeListeners(listeners)
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- proxyServer.Serve(listener)
-	}()
+	errCh := make(chan error, len(proxyServers))
+	for i := range proxyServers {
+		server := proxyServers[i]
+		listener := listeners[i]
+		go func() {
+			errCh <- server.Serve(listener)
+		}()
+	}
 
 	sigCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -127,12 +135,16 @@ func serve(ctx context.Context) error {
 	case <-sigCtx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := proxyServer.Shutdown(shutdownCtx); err != nil {
-			return err
+		for _, server := range proxyServers {
+			if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return err
+			}
 		}
-		serveErr := <-errCh
-		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			return serveErr
+		for range proxyServers {
+			serveErr := <-errCh
+			if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+				return serveErr
+			}
 		}
 		return nil
 	case err := <-errCh:
@@ -145,4 +157,39 @@ func serve(ctx context.Context) error {
 
 func usageError() error {
 	return fmt.Errorf("usage: dev-switchboard <serve|add|list|activate|active|remove>")
+}
+
+func startProxyServers(handler http.Handler, addrs []string) ([]*http.Server, []net.Listener, error) {
+	servers := make([]*http.Server, 0, len(addrs))
+	listeners := make([]net.Listener, 0, len(addrs))
+
+	for _, addr := range addrs {
+		server := &http.Server{Addr: addr, Handler: handler}
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			if isOptionalIPv6Loopback(addr, err) {
+				continue
+			}
+			closeListeners(listeners)
+			return nil, nil, fmt.Errorf("listen on %s: %w", addr, err)
+		}
+		servers = append(servers, server)
+		listeners = append(listeners, listener)
+	}
+
+	if len(servers) == 0 {
+		return nil, nil, fmt.Errorf("could not bind switchboard proxy listeners")
+	}
+
+	return servers, listeners, nil
+}
+
+func closeListeners(listeners []net.Listener) {
+	for _, listener := range listeners {
+		_ = listener.Close()
+	}
+}
+
+func isOptionalIPv6Loopback(addr string, err error) bool {
+	return addr == "[::1]:5173" && strings.Contains(err.Error(), "address family not supported")
 }

@@ -35,9 +35,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, stdout io.Writer) error {
-	if len(args) == 0 {
-		args = []string{"tui"}
-	}
+	args = normalizeArgs(args)
 	if isHelpArg(args[0]) {
 		printHelp(stdout)
 		return nil
@@ -307,6 +305,16 @@ func waitForShutdown(client *control.Client, timeout time.Duration) error {
 
 func usageError() error {
 	return fmt.Errorf("usage: dev-switchboard <serve|start|stop|status|tui|add|list|activate|active|rename|remove>")
+}
+
+func normalizeArgs(args []string) []string {
+	if len(args) == 0 {
+		return []string{"tui"}
+	}
+	if args[0] == "--port" || args[0] == "-p" {
+		return append([]string{"tui"}, args...)
+	}
+	return args
 }
 
 func parseServerCommand(args []string) (int, error) {

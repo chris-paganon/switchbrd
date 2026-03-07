@@ -10,6 +10,20 @@ import (
 )
 
 func TestRunWithoutArgsDefaultsToTUI(t *testing.T) {
+	testRunDefaultsToTUI(t, nil, defaultProxyPort)
+}
+
+func TestRunWithLongPortFlagDefaultsToTUI(t *testing.T) {
+	testRunDefaultsToTUI(t, []string{"--port", "6000"}, 6000)
+}
+
+func TestRunWithShortPortFlagDefaultsToTUI(t *testing.T) {
+	testRunDefaultsToTUI(t, []string{"-p", "6000"}, 6000)
+}
+
+func testRunDefaultsToTUI(t *testing.T, args []string, expectedPort int) {
+	t.Helper()
+
 	originalEnsure := ensureServerRunningFunc
 	originalRunTUI := runTUIFunc
 	t.Cleanup(func() {
@@ -20,7 +34,7 @@ func TestRunWithoutArgsDefaultsToTUI(t *testing.T) {
 	calledEnsure := false
 	ensureServerRunningFunc = func(ctx context.Context, client *control.Client, port int) (bool, error) {
 		calledEnsure = true
-		if port != defaultProxyPort {
+		if port != expectedPort {
 			t.Fatalf("unexpected port: %d", port)
 		}
 		return false, nil
@@ -35,14 +49,14 @@ func TestRunWithoutArgsDefaultsToTUI(t *testing.T) {
 		return nil
 	}
 
-	if err := run(context.Background(), nil, &bytes.Buffer{}); err != nil {
-		t.Fatalf("run without args: %v", err)
+	if err := run(context.Background(), args, &bytes.Buffer{}); err != nil {
+		t.Fatalf("run %v: %v", args, err)
 	}
 	if !calledEnsure {
-		t.Fatal("expected run without args to ensure the server is running")
+		t.Fatalf("expected run %v to ensure the server is running", args)
 	}
 	if !calledTUI {
-		t.Fatal("expected run without args to launch the TUI")
+		t.Fatalf("expected run %v to launch the TUI", args)
 	}
 }
 

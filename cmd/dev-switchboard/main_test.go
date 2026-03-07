@@ -5,21 +5,44 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"dev-switchboard/internal/control"
 )
 
-func TestRunWithoutArgsPrintsHelp(t *testing.T) {
-	var stdout bytes.Buffer
+func TestRunWithoutArgsDefaultsToTUI(t *testing.T) {
+	originalEnsure := ensureServerRunningFunc
+	originalRunTUI := runTUIFunc
+	t.Cleanup(func() {
+		ensureServerRunningFunc = originalEnsure
+		runTUIFunc = originalRunTUI
+	})
 
-	if err := run(context.Background(), nil, &stdout); err != nil {
+	calledEnsure := false
+	ensureServerRunningFunc = func(ctx context.Context, client *control.Client, port int) (bool, error) {
+		calledEnsure = true
+		if port != defaultProxyPort {
+			t.Fatalf("unexpected port: %d", port)
+		}
+		return false, nil
+	}
+
+	calledTUI := false
+	runTUIFunc = func(client *control.Client, ownedServer bool) error {
+		calledTUI = true
+		if ownedServer {
+			t.Fatalf("expected ownedServer false")
+		}
+		return nil
+	}
+
+	if err := run(context.Background(), nil, &bytes.Buffer{}); err != nil {
 		t.Fatalf("run without args: %v", err)
 	}
-
-	output := stdout.String()
-	if !strings.Contains(output, "Usage:") {
-		t.Fatalf("expected usage in help output, got %q", output)
+	if !calledEnsure {
+		t.Fatal("expected run without args to ensure the server is running")
 	}
-	if !strings.Contains(output, "Commands:") {
-		t.Fatalf("expected commands in help output, got %q", output)
+	if !calledTUI {
+		t.Fatal("expected run without args to launch the TUI")
 	}
 }
 

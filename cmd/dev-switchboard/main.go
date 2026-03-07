@@ -22,6 +22,11 @@ import (
 
 const defaultProxyPort = 5173
 
+var (
+	ensureServerRunningFunc = ensureServerRunning
+	runTUIFunc              = tuiapp.Run
+)
+
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
 		log.Printf("error: %v", err)
@@ -30,7 +35,10 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, stdout io.Writer) error {
-	if len(args) == 0 || isHelpArg(args[0]) {
+	if len(args) == 0 {
+		args = []string{"tui"}
+	}
+	if isHelpArg(args[0]) {
 		printHelp(stdout)
 		return nil
 	}
@@ -59,11 +67,11 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		if err != nil {
 			return err
 		}
-		ownedServer, err := ensureServerRunning(ctx, client, port)
+		ownedServer, err := ensureServerRunningFunc(ctx, client, port)
 		if err != nil {
 			return err
 		}
-		return tuiapp.Run(client, ownedServer)
+		return runTUIFunc(client, ownedServer)
 	case "add":
 		port, name, err := parsePortNameCommand("add", args[1:])
 		if err != nil {

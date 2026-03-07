@@ -31,4 +31,4 @@ go run ./cmd/dev-switchboard rename 5175 my-app
 go run ./cmd/dev-switchboard remove my-app
 ```
 
-Running without a command, or with `--help` / `-h`, prints the built-in help message with command descriptions and examples.
+Running without a command launches the terminal UI. Use `--help` or `-h` to print the built-in help message.

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"dev-switchboard/internal/app"
-	"dev-switchboard/internal/control"
+	"switchbrd/internal/app"
+	"switchbrd/internal/control"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,9 +34,9 @@ type refreshMsg struct {
 }
 
 type actionResultMsg struct {
-	err     error
-	quit    bool
-	detach  bool
+	err    error
+	quit   bool
+	detach bool
 }
 
 type model struct {
@@ -44,16 +44,16 @@ type model struct {
 	ownedServer bool
 	detached    bool
 
-	status     control.StatusData
-	apps       []app.App
-	selected   int
-	mode       mode
-	portInput  textinput.Model
-	nameInput  textinput.Model
-	errLine    string
-	ready      bool
-	width      int
-	height     int
+	status    control.StatusData
+	apps      []app.App
+	selected  int
+	mode      mode
+	portInput textinput.Model
+	nameInput textinput.Model
+	errLine   string
+	ready     bool
+	width     int
+	height    int
 }
 
 var (
@@ -174,7 +174,7 @@ func (m model) View() string {
 		return appShellStyle.Render("loading...")
 	}
 
-	top := headerStyle.Render(" dev-switchboard ") + "\n" + m.renderStatusPanel()
+	top := headerStyle.Render(" switchbrd ") + "\n" + m.renderStatusPanel()
 	body := lipgloss.JoinHorizontal(lipgloss.Top, m.renderAppsPanel(), m.renderActionsPanel())
 
 	return appShellStyle.

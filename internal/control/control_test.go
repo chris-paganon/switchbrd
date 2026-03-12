@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"dev-switchboard/internal/registry"
+	"switchbrd/internal/registry"
 )
 
 func TestServerHandlersLifecycle(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(5173), ServerOptions{})
+	server := NewServer("/tmp/switchbrd-test.sock", registry.New(5173), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5174}, http.StatusCreated)
 
@@ -61,7 +61,7 @@ func TestServerHandlersLifecycle(t *testing.T) {
 }
 
 func TestServerRenameByOldName(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(5173), ServerOptions{})
+	server := NewServer("/tmp/switchbrd-test.sock", registry.New(5173), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175}, http.StatusCreated)
 	renameRecorder := request(t, server, http.MethodPut, "/rename", renameRequest{OldName: "5175", NewName: "my-app"})
@@ -80,7 +80,7 @@ func TestServerRenameByOldName(t *testing.T) {
 }
 
 func TestServerActivatesExistingName(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(5173), ServerOptions{})
+	server := NewServer("/tmp/switchbrd-test.sock", registry.New(5173), ServerOptions{})
 
 	postJSON(t, server, http.MethodPost, "/apps", addRequest{Port: 5175, Name: "my-app"}, http.StatusCreated)
 	postJSON(t, server, http.MethodPut, "/active", activateRequest{Target: "my-app"}, http.StatusOK)
@@ -96,7 +96,7 @@ func TestServerActivatesExistingName(t *testing.T) {
 }
 
 func TestServerRejectsInvalidNames(t *testing.T) {
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(5173), ServerOptions{})
+	server := NewServer("/tmp/switchbrd-test.sock", registry.New(5173), ServerOptions{})
 
 	recorder := request(t, server, http.MethodDelete, "/apps/bad/name", nil)
 	if recorder.Code != http.StatusBadRequest {
@@ -111,7 +111,7 @@ func TestServerRejectsInvalidNames(t *testing.T) {
 
 func TestServerStatusAndShutdown(t *testing.T) {
 	shutdownCalled := make(chan struct{}, 1)
-	server := NewServer("/tmp/dev-switchboard-test.sock", registry.New(5173), ServerOptions{
+	server := NewServer("/tmp/switchbrd-test.sock", registry.New(5173), ServerOptions{
 		Status: func() StatusData {
 			return StatusData{Running: true, PID: 123, AppCount: 2, ProxyListenAddrs: []string{"127.0.0.1:5173"}}
 		},

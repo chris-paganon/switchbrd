@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"dev-switchboard/internal/app"
-	"dev-switchboard/internal/registry"
+	"switchbrd/internal/app"
+	"switchbrd/internal/registry"
 )
 
 type Server struct {

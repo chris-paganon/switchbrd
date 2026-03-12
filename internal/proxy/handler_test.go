@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"dev-switchboard/internal/app"
-	"dev-switchboard/internal/registry"
+	"switchbrd/internal/app"
+	"switchbrd/internal/registry"
 )
 
 func TestHandlerReturns503WhenNoActiveApp(t *testing.T) {
 	reg := registry.New(5173)
 	recorder := httptest.NewRecorder()
 
-	NewHandler(reg).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchboard/", nil))
+	NewHandler(reg).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchbrd/", nil))
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("unexpected status: %d", recorder.Code)
@@ -70,7 +70,7 @@ func TestHandlerReturns502WhenBackendIsDown(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchboard/", nil))
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchbrd/", nil))
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("unexpected status: %d", recorder.Code)
 	}
@@ -105,7 +105,7 @@ func assertProxyBody(t *testing.T, handler http.Handler, want string) {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchboard/", nil))
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "http://switchbrd/", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("unexpected status: %d body=%s", recorder.Code, recorder.Body.String())
 	}

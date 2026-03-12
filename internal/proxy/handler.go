@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"dev-switchboard/internal/registry"
+	"switchbrd/internal/registry"
 )
 
 type Handler struct {

@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"dev-switchboard/internal/control"
-	"dev-switchboard/internal/proxy"
-	"dev-switchboard/internal/registry"
+	"switchbrd/internal/control"
+	"switchbrd/internal/proxy"
+	"switchbrd/internal/registry"
 )
 
 type Config struct {
@@ -123,7 +123,7 @@ func startProxyServers(handler http.Handler, addrs []string) ([]*http.Server, []
 	}
 
 	if len(servers) == 0 {
-		return nil, nil, fmt.Errorf("could not bind switchboard proxy listeners")
+		return nil, nil, fmt.Errorf("could not bind switchbrd proxy listeners")
 	}
 
 	return servers, listeners, nil

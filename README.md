@@ -1,34 +1,34 @@
-# dev-switchboard
+# switchbrd
 
-Local developer switchboard for routing `http://localhost:5173` to one active app by default.
+Local developer `switchbrd` for routing `http://localhost:5173` to one active app by default.
 
-When `serve` is running, switchboard claims loopback port `5173` by default so Vite apps started with plain `pnpm dev` should typically fall through to `5174`, `5175`, and so on. Use `--port` to override the proxy port.
+When `serve` is running, `switchbrd` claims loopback port `5173` by default so Vite apps started with plain `pnpm dev` should typically fall through to `5174`, `5175`, and so on. Use `--port` to override the proxy port.
 
 ## Commands
 
 ```sh
-go run ./cmd/dev-switchboard
-go run ./cmd/dev-switchboard --help
-go run ./cmd/dev-switchboard -h
-go run ./cmd/dev-switchboard serve
-go run ./cmd/dev-switchboard serve --port 6000
-go run ./cmd/dev-switchboard serve -p 6000
-go run ./cmd/dev-switchboard start
-go run ./cmd/dev-switchboard start --port 6000
-go run ./cmd/dev-switchboard start -p 6000
-go run ./cmd/dev-switchboard status
-go run ./cmd/dev-switchboard tui
-go run ./cmd/dev-switchboard tui -p 6000
-go run ./cmd/dev-switchboard stop
-go run ./cmd/dev-switchboard add 5174
-go run ./cmd/dev-switchboard add 5175 --name my-app
-go run ./cmd/dev-switchboard list
-go run ./cmd/dev-switchboard activate 5174
-go run ./cmd/dev-switchboard activate my-app
-go run ./cmd/dev-switchboard activate 5175 --name my-app
-go run ./cmd/dev-switchboard active
-go run ./cmd/dev-switchboard rename 5175 my-app
-go run ./cmd/dev-switchboard remove my-app
+go run ./cmd/switchbrd
+go run ./cmd/switchbrd --help
+go run ./cmd/switchbrd -h
+go run ./cmd/switchbrd serve
+go run ./cmd/switchbrd serve --port 6000
+go run ./cmd/switchbrd serve -p 6000
+go run ./cmd/switchbrd start
+go run ./cmd/switchbrd start --port 6000
+go run ./cmd/switchbrd start -p 6000
+go run ./cmd/switchbrd status
+go run ./cmd/switchbrd tui
+go run ./cmd/switchbrd tui -p 6000
+go run ./cmd/switchbrd stop
+go run ./cmd/switchbrd add 5174
+go run ./cmd/switchbrd add 5175 --name my-app
+go run ./cmd/switchbrd list
+go run ./cmd/switchbrd activate 5174
+go run ./cmd/switchbrd activate my-app
+go run ./cmd/switchbrd activate 5175 --name my-app
+go run ./cmd/switchbrd active
+go run ./cmd/switchbrd rename 5175 my-app
+go run ./cmd/switchbrd remove my-app
 ```
 
 Running without a command launches the terminal UI. Use `--help` or `-h` to print the built-in help message.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"dev-switchboard/internal/app"
+	"switchbrd/internal/app"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 	ErrNoActiveApp   = errors.New("no active app")
 	ErrDuplicateName = errors.New("app name already exists")
 	ErrDuplicatePort = errors.New("app port already exists")
-	ErrReservedPort  = errors.New("port is reserved for switchboard")
+	ErrReservedPort  = errors.New("port is reserved for switchbrd")
 	ErrInvalidPort   = errors.New("invalid port")
 	ErrInvalidName   = errors.New("invalid app name")
 )

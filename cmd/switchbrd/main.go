@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"dev-switchboard/internal/app"
-	"dev-switchboard/internal/control"
-	"dev-switchboard/internal/service"
-	tuiapp "dev-switchboard/internal/tui"
+	"switchbrd/internal/app"
+	"switchbrd/internal/control"
+	"switchbrd/internal/service"
+	tuiapp "switchbrd/internal/tui"
 )
 
 const defaultProxyPort = 5173
@@ -133,7 +133,7 @@ func run(ctx context.Context, args []string, stdout io.Writer) error {
 		return nil
 	case "remove":
 		if len(args) != 2 {
-			return fmt.Errorf("usage: dev-switchboard remove <name>")
+			return fmt.Errorf("usage: switchbrd remove <name>")
 		}
 		return client.Remove(ctx, args[1])
 	default:
@@ -146,17 +146,17 @@ func isHelpArg(arg string) bool {
 }
 
 func printHelp(stdout io.Writer) {
-	fmt.Fprintf(stdout, `dev-switchboard routes a local proxy port to one active app.
+	fmt.Fprintf(stdout, `switchbrd routes a local proxy port to one active app.
 The default proxy port is 5173.
 
 Usage:
-  dev-switchboard <command> [options]
+  switchbrd <command> [options]
 
 Commands:
-  serve, daemon       Run the switchboard server in the foreground.
-  start               Start the switchboard server in the background.
-  stop                Stop the running switchboard server.
-  status              Show whether the switchboard server is running.
+  serve, daemon       Run the switchbrd server in the foreground.
+  start               Start the switchbrd server in the background.
+  stop                Stop the running switchbrd server.
+  status              Show whether the switchbrd server is running.
   tui                 Launch the terminal UI, starting the server if needed.
   add <port>          Register an app port, optionally with --name.
   list                List registered apps and mark the active app.
@@ -172,9 +172,9 @@ Options:
   -h, --help          Show this help message.
 
 Examples:
-  dev-switchboard start --port 6000
-  dev-switchboard add 5175 --name my-app
-  dev-switchboard activate my-app
+  switchbrd start --port 6000
+  switchbrd add 5175 --name my-app
+  switchbrd activate my-app
 `)
 }
 
@@ -286,7 +286,7 @@ func waitForHealth(client *control.Client, timeout time.Duration) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return fmt.Errorf("timed out waiting for switchboard to start")
+	return fmt.Errorf("timed out waiting for switchbrd to start")
 }
 
 func waitForShutdown(client *control.Client, timeout time.Duration) error {
@@ -300,11 +300,11 @@ func waitForShutdown(client *control.Client, timeout time.Duration) error {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	return fmt.Errorf("timed out waiting for switchboard to stop")
+	return fmt.Errorf("timed out waiting for switchbrd to stop")
 }
 
 func usageError() error {
-	return fmt.Errorf("usage: dev-switchboard <serve|start|stop|status|tui|add|list|activate|active|rename|remove>")
+	return fmt.Errorf("usage: switchbrd <serve|start|stop|status|tui|add|list|activate|active|rename|remove>")
 }
 
 func normalizeArgs(args []string) []string {
@@ -324,7 +324,7 @@ func parseServerCommand(args []string) (int, error) {
 		switch args[i] {
 		case "--port", "-p":
 			if i+1 >= len(args) {
-				return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start|tui> [--port <port>]")
+				return 0, fmt.Errorf("usage: switchbrd <serve|daemon|start|tui> [--port <port>]")
 			}
 			parsedPort, err := strconv.Atoi(args[i+1])
 			if err != nil || parsedPort < 1 || parsedPort > 65535 {
@@ -333,7 +333,7 @@ func parseServerCommand(args []string) (int, error) {
 			port = parsedPort
 			i++
 		default:
-			return 0, fmt.Errorf("usage: dev-switchboard <serve|daemon|start|tui> [--port <port>]")
+			return 0, fmt.Errorf("usage: switchbrd <serve|daemon|start|tui> [--port <port>]")
 		}
 	}
 
@@ -350,23 +350,23 @@ func parsePortNameCommand(command string, args []string) (int, string, error) {
 		switch args[i] {
 		case "--name", "-n":
 			if i+1 >= len(args) {
-				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+				return 0, "", fmt.Errorf("usage: switchbrd %s <port> [--name <name>]", command)
 			}
 			name = args[i+1]
 			i++
 		default:
 			if strings.HasPrefix(args[i], "-") {
-				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+				return 0, "", fmt.Errorf("usage: switchbrd %s <port> [--name <name>]", command)
 			}
 			if portArg != "" {
-				return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+				return 0, "", fmt.Errorf("usage: switchbrd %s <port> [--name <name>]", command)
 			}
 			portArg = args[i]
 		}
 	}
 
 	if portArg == "" {
-		return 0, "", fmt.Errorf("usage: dev-switchboard %s <port> [--name <name>]", command)
+		return 0, "", fmt.Errorf("usage: switchbrd %s <port> [--name <name>]", command)
 	}
 
 	port, err := strconv.Atoi(portArg)
@@ -387,26 +387,26 @@ func parseActivateCommand(args []string) (string, string, error) {
 		switch args[i] {
 		case "--name", "-n":
 			if i+1 >= len(args) {
-				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+				return "", "", fmt.Errorf("usage: switchbrd activate <port|name> [--name <name>]")
 			}
 			name = args[i+1]
 			i++
 		default:
 			if strings.HasPrefix(args[i], "-") {
-				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+				return "", "", fmt.Errorf("usage: switchbrd activate <port|name> [--name <name>]")
 			}
 			if target != "" {
-				return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+				return "", "", fmt.Errorf("usage: switchbrd activate <port|name> [--name <name>]")
 			}
 			target = args[i]
 		}
 	}
 
 	if target == "" {
-		return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+		return "", "", fmt.Errorf("usage: switchbrd activate <port|name> [--name <name>]")
 	}
 	if _, err := strconv.Atoi(target); err != nil && name != "" {
-		return "", "", fmt.Errorf("usage: dev-switchboard activate <port|name> [--name <name>]")
+		return "", "", fmt.Errorf("usage: switchbrd activate <port|name> [--name <name>]")
 	}
 
 	return strings.TrimSpace(target), strings.TrimSpace(name), nil
@@ -414,7 +414,7 @@ func parseActivateCommand(args []string) (string, string, error) {
 
 func parseRenameCommand(args []string) (string, string, error) {
 	if len(args) != 2 {
-		return "", "", fmt.Errorf("usage: dev-switchboard rename <old-name> <new-name>")
+		return "", "", fmt.Errorf("usage: switchbrd rename <old-name> <new-name>")
 	}
 
 	return strings.TrimSpace(args[0]), strings.TrimSpace(args[1]), nil

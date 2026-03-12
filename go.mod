@@ -1,4 +1,4 @@
-module dev-switchboard
+module switchbrd
 
 go 1.26
 

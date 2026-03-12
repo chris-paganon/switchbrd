@@ -12,7 +12,7 @@ import (
 	"path"
 	"time"
 
-	"dev-switchboard/internal/app"
+	"switchbrd/internal/app"
 )
 
 type Client struct {
@@ -29,7 +29,7 @@ func NewClient(socket string) *Client {
 	}
 	return &Client{
 		httpClient: &http.Client{Timeout: 3 * time.Second, Transport: transport},
-		baseURL:    "http://switchboard",
+		baseURL:    "http://switchbrd",
 	}
 }
 
@@ -182,7 +182,7 @@ func (c *Client) do(ctx context.Context, method string, requestPath string, payl
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("switchboard is not running: %w", err)
+		return nil, fmt.Errorf("switchbrd is not running: %w", err)
 	}
 	return resp, nil
 }

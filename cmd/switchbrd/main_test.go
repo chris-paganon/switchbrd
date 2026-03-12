@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dev-switchboard/internal/control"
+	"switchbrd/internal/control"
 )
 
 func TestRunWithoutArgsDefaultsToTUI(t *testing.T) {

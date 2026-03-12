@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"dev-switchboard/internal/app"
+	"switchbrd/internal/app"
 )
 
 func TestRegistryLifecycle(t *testing.T) {

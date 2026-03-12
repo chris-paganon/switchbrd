@@ -1,6 +1,6 @@
 package control
 
-import "dev-switchboard/internal/app"
+import "switchbrd/internal/app"
 
 type addRequest struct {
 	Port int    `json:"port"`

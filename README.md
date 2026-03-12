@@ -55,13 +55,23 @@ Running `switchbrd` with no command launches the terminal UI. Use `switchbrd --h
 
 ### Server lifecycle
 
-Use these commands to start, stop, and inspect the local switchbrd server:
+Run one of the start commands below to launch the local switchbrd server. You only need to start it once. The port flag is optional and only needed if you do not want to use the default port `5173`.
 
 ```sh
 switchbrd serve
-switchbrd serve --port 6000
 switchbrd start
+```
+
+Optional custom port:
+
+```sh
+switchbrd serve --port 6000
 switchbrd start --port 6000
+```
+
+Inspect or stop the running server:
+
+```sh
 switchbrd status
 switchbrd stop
 ```

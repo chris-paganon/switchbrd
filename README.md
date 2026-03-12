@@ -4,6 +4,12 @@ Local developer `switchbrd` for routing `http://localhost:5173` to one active ap
 
 When `serve` is running, `switchbrd` claims loopback port `5173` by default so Vite apps started with plain `pnpm dev` should typically fall through to `5174`, `5175`, and so on. Use `--port` to override the proxy port.
 
+## TUI
+
+Running `go run ./cmd/switchbrd tui` opens the terminal UI for viewing registered apps, switching the active app, and managing ports.
+
+![switchbrd terminal UI showing app status, active app, and app registration form](./screenshot.png)
+
 ## Commands
 
 ```sh

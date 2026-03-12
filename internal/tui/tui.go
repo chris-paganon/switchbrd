@@ -504,6 +504,9 @@ func actionResultCmd(err error, quit bool, detach bool) tea.Cmd {
 func sortedApps(apps []app.App) []app.App {
 	cloned := append([]app.App(nil), apps...)
 	sort.Slice(cloned, func(i, j int) bool {
+		if cloned[i].Port != cloned[j].Port {
+			return cloned[i].Port < cloned[j].Port
+		}
 		return cloned[i].Name < cloned[j].Name
 	})
 	return cloned

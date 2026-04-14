@@ -6,6 +6,8 @@ It listens on `http://localhost:5173` by default and forwards that port to which
 
 Use it when you are developing several frontend apps at the same time and want to switch between them quickly without constantly changing ports.
 
+> **Platform:** Developed and tested on **Linux** (Arch). **macOS** will probably work. **Windows** is untested and probably doesn't work; **WSL** might. If you use another setup, try it and open an issue or PR with what you find.
+
 ## Install
 
 ### Requirements

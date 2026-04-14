@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"switchbrd/internal/control"
@@ -137,5 +138,14 @@ func closeListeners(listeners []net.Listener) {
 
 func isOptionalIPv6Loopback(addr string, err error) bool {
 	host, _, splitErr := net.SplitHostPort(addr)
-	return splitErr == nil && host == "::1" && strings.Contains(err.Error(), "address family not supported")
+	if splitErr != nil || host != "::1" {
+		return false
+	}
+
+	// Linux can report an unavailable IPv6 loopback as either unsupported
+	// or unavailable when IPv6 is disabled via sysctl.
+	return errors.Is(err, syscall.EAFNOSUPPORT) ||
+		errors.Is(err, syscall.EADDRNOTAVAIL) ||
+		strings.Contains(err.Error(), "address family not supported") ||
+		strings.Contains(err.Error(), "cannot assign requested address")
 }
